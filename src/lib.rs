@@ -3,15 +3,25 @@
  *  See LICENSE for licensing information.
  */
 
+#![deny(missing_docs)]
+
 use std::collections::VecDeque;
 use std::process;
 use tracing::error;
 
 trait EmergencyBrake {
+    /// Insert a sample into the emergency brake.
+    /// This will pop the oldest sample if the queue is full.
+    /// `true` indicates a success, `false` indicates a failure.
     fn sample(&mut self, sample: bool);
+
+    /// Returns false if the emergency brake has not been triggered.
+    /// If the emergency brake has been triggered, the process will be aborted.
     fn trigger(&self) -> bool;
 }
 
+
+/// The emergency brake is a circular queue of boolean samples with a defined size and tolerance.
 #[derive(Clone, Debug, Default)]
 pub struct EBrake {
     data: VecDeque<bool>,
@@ -45,6 +55,19 @@ impl EmergencyBrake for EBrake {
         }
 
         false
+    }
+}
+
+impl EBrake {
+    /// Creates a new Emergency Brake with the given number of samples and tolerance.
+    pub fn new(samples: usize, tolerance: usize) -> Self {
+        EBrake {
+            data: VecDeque::with_capacity(samples),
+            failures: 0,
+            samples: samples,
+            successes: 0,
+            tolerance: tolerance,
+        }
     }
 }
 
