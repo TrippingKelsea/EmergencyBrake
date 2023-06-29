@@ -82,6 +82,12 @@ impl EmergencyBrake for EBrake {
                 None => {},
             }
         }
+        
+        match sample {
+            true => self.successes += 1,
+            false => self.failures += 1,
+        }
+
         self.data.push_back(sample);
     }
 
