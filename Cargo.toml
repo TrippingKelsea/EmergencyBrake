@@ -1,5 +1,5 @@
 [package]
-name = "eBrake"
+name = "emergency_brake"
 version = "0.1.0"
 edition = "2021"
 
