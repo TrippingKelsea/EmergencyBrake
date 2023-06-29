@@ -22,7 +22,8 @@ fn main() {
         // Check service status
         let service_status: bool = check_service_status('service.foo.com');
         // Add the sample to the sample window and trigger if necessary
-        ebrake.add_sample(service_status).trigger();
+        ebrake.add_sample(service_status);
+        ebrake.trigger();
         // Do something critical
         ...
 }
