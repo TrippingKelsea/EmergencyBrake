@@ -12,7 +12,7 @@ will be terminated. The sample window is a circular buffer, so the oldest
 sample will be replaced by the newest sample.
 
 ```
-use emergency_brake::EBrake;
+use emergency_brake::*;
 
 fn main() {
     let sample_window_size = 25;

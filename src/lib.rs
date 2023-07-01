@@ -35,8 +35,16 @@
 
 #![deny(missing_docs)]
 
+#[cfg(feature = "service_checker")]
+use async_trait::async_trait;
+
+
 use std::collections::VecDeque;
 use std::process;
+
+#[cfg(feature = "service_checker")]
+use tokio;
+
 use tracing::error;
 
 
@@ -59,6 +67,22 @@ pub trait EmergencyBrake {
         self.add_sample(sample);
         self.trigger()
     }
+}
+
+
+/// The ServiceCheck trait is the interface for checking or monitoring a service.
+#[cfg(feature = "service_checker")]
+#[cfg_attr(docsrs, doc(cfg(feature = "service_checker")))]
+#[async_trait]
+pub trait ServiceChecker {
+    /// Check if the service is running. This takes a URI as a parameter, and
+    /// performs a basic HTTP GET request to the URI. If the request is successful,
+    /// it will return true and assume the service is running, false otherwise.
+    async fn check_service_endpoint(&self, uri: &str) -> bool;
+
+    /// Similar to check_service_endpoint, but will check the service at a given
+    /// interval. This will return true if the service is running, false otherwise.
+    async fn watch_service_endpoint(&self, uri: &str, interval: usize) -> bool;
 }
 
 
@@ -109,6 +133,11 @@ impl EmergencyBrake for EBrake {
         self.trigger()
     }
 }
+
+
+
+//#[cfg(feature = "service_checker")]
+
 
 impl EBrake {
     /// Creates a new Emergency Brake with the given number of samples and tolerance.
