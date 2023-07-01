@@ -43,6 +43,9 @@ use std::collections::VecDeque;
 use std::process;
 
 #[cfg(feature = "service_checker")]
+use reqwest;
+
+#[cfg(feature = "service_checker")]
 use tokio;
 
 use tracing::error;
@@ -71,8 +74,8 @@ pub trait EmergencyBrake {
 
 
 /// The ServiceCheck trait is the interface for checking or monitoring a service.
-#[cfg(feature = "service_checker")]
 #[cfg_attr(docsrs, doc(cfg(feature = "service_checker")))]
+#[cfg(feature = "service_checker")]
 #[async_trait]
 pub trait ServiceChecker {
     /// Check if the service is running. This takes a URI as a parameter, and
@@ -84,7 +87,7 @@ pub trait ServiceChecker {
     /// interval. This will spawn a background thread and consume the current
     /// instance of the EBrake. If the service stops responding, the EBrake will
     /// be triggered and the process will be aborted.
-    async fn watch_service_endpoint(&mut self, uri: &str, interval: usize);
+    async fn watch_service_endpoint(mut self, uri: &'static str, interval: usize);
 }
 
 
@@ -138,7 +141,29 @@ impl EmergencyBrake for EBrake {
 
 
 
-//#[cfg(feature = "service_checker")]
+#[cfg(feature = "service_checker")]
+#[async_trait]
+impl ServiceChecker for EBrake {
+    async fn check_service_endpoint(&self, uri: &str) -> bool {
+        let client = reqwest::Client::new();
+        let response = client.get(uri).send().await;
+        match response {
+            Ok(_) => true,
+            Err(_) => false,
+        }
+    }
+
+    async fn watch_service_endpoint(mut self, uri: &'static str, interval: usize) {
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(interval as u64));
+            loop {
+                interval.tick().await;
+                let result = self.check_service_endpoint(uri).await;
+                self.trigger_on_sample(result);
+            }
+        });
+    }
+}
 
 
 impl EBrake {

@@ -7,10 +7,11 @@ edition = "2021"
 
 [dependencies]
 async-trait = {version = "0.1.68", optional = true}
+reqwest = {version = "0.11.18", optional = true}
 tokio = {version = "1.29.1", optional = true}
 tracing = "0.1.37"
 
 
 [features]
-service_checker = ["dep:tokio", "dep:async-trait"]
+service_checker = ["dep:async-trait", "dep:reqwest", "dep:tokio"]
 
