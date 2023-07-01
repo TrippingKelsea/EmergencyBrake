@@ -1,0 +1,34 @@
+name: Publish
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "*release"
+
+env: 
+  CARGO_TERM_COLOR: always
+
+
+
+jobs:
+  publish:
+    name: Publish to Crates.io
+    runs-on: ${{matrix.os}}-latest
+    strategy:
+      matrix:
+        os:
+          - ubuntu
+        toolchain:
+          - stable
+          - beta
+          - nightly
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - uses: katyo/publish-crates@v2
+        with:
+          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
