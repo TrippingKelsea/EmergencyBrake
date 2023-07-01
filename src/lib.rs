@@ -81,8 +81,10 @@ pub trait ServiceChecker {
     async fn check_service_endpoint(&self, uri: &str) -> bool;
 
     /// Similar to check_service_endpoint, but will check the service at a given
-    /// interval. This will return true if the service is running, false otherwise.
-    async fn watch_service_endpoint(&self, uri: &str, interval: usize) -> bool;
+    /// interval. This will spawn a background thread and consume the current
+    /// instance of the EBrake. If the service stops responding, the EBrake will
+    /// be triggered and the process will be aborted.
+    async fn watch_service_endpoint(&mut self, uri: &str, interval: usize);
 }
 
 
