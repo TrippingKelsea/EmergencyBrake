@@ -14,7 +14,7 @@
 //! for _ in 0..sample_window_size {
 //!    ebrake.add_sample(true);
 //! }
-//! assert_eq!(ebrake.trigger(), false);
+//! assert_eq!(ebrake.trigger(&Trigger::Panic), false);
 //! ```
 //! 
 //! This will use the trigger_on_sample function.
@@ -24,9 +24,9 @@
 //! let failure_threshold = 3;
 //! let mut ebrake = EBrake::new(sample_window_size, failure_threshold);
 //! for _ in 0..sample_window_size {
-//!   ebrake.trigger_on_sample(true);
+//!   ebrake.trigger_on_sample(true, &Trigger::Panic);
 //! }
-//! assert_eq!(ebrake.trigger(), false);
+//! assert_eq!(ebrake.trigger(&Trigger::Panic), false);
 //! ```
 //! 
 //! 
@@ -61,15 +61,24 @@ pub trait EmergencyBrake {
     /// `true` indicates a success, `false` indicates a failure.
     fn add_sample(&mut self, sample: bool);
 
+    /// Returns true if the emergency brake should be triggered.
+    /// Returns false if the emergency brake should not be triggered.
+    fn should_trigger(&self) -> bool;
+
+    /// Returns false if the emergency brake has not been triggered.
+    /// If the emergency brake has been triggered, the process supplied trigger action will be executed.
+    fn trigger(&self, trigger: &'static Trigger) -> bool;
+
     /// Returns false if the emergency brake has not been triggered.
     /// If the emergency brake has been triggered, the process will be aborted.
-    fn trigger(&self) -> bool;
+    fn trigger_abort(&self) -> bool;
+
+    /// Returns false if the emergency brake has not been triggered.
+    /// If the emergency brake has been triggered, a panic will occur.
+    fn trigger_panic(&self) -> bool;
 
     /// Insert a sample and check if the emergency brake should be triggered.
-    fn trigger_on_sample(&mut self, sample: bool) -> bool {
-        self.add_sample(sample);
-        self.trigger()
-    }
+    fn trigger_on_sample(&mut self, sample: bool, trigger: &'static Trigger) -> bool;
 }
 
 
@@ -87,9 +96,18 @@ pub trait ServiceChecker {
     /// interval. This will spawn a background thread and consume the current
     /// instance of the EBrake. If the service stops responding, the EBrake will
     /// be triggered and the process will be aborted.
-    async fn watch_service_endpoint(mut self, uri: &'static str, interval: usize);
+    async fn watch_service_endpoint(mut self, uri: &'static str, interval: usize, trigger: &'static Trigger);
 }
 
+/// The Trigger enum defines the action to take when the emergency brake is triggered.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Trigger {
+    /// Abort the process.
+    Abort,
+
+    /// Panic the process.
+    Panic,
+}
 
 /// The emergency brake is a circular queue of boolean samples with a defined size and tolerance.
 #[derive(Clone, Debug, Default)]
@@ -101,6 +119,12 @@ pub struct EBrake {
     tolerance: usize,
 }
 
+
+impl Default for Trigger {
+    fn default() -> Self {
+        Trigger::Panic
+    }
+}
 
 impl EmergencyBrake for EBrake {
     fn add_sample(&mut self, sample: bool) {
@@ -120,22 +144,50 @@ impl EmergencyBrake for EBrake {
         self.data.push_back(sample);
     }
 
-    fn trigger(&self) -> bool {
+    fn should_trigger(&self) -> bool {
         if self.data.len() < self.tolerance {
             return false;
         }
 
-        if self.failures > self.tolerance {
-            error!("Emergency brake triggered!");
-            process::abort();
-        }
-
-        false
+        self.failures > self.tolerance
     }
 
-    fn trigger_on_sample(&mut self, sample: bool) -> bool {
+    fn trigger(&self, trigger: &'static Trigger) -> bool {
+        match self.should_trigger() {
+            true => {
+                error!("Emergency brake triggered!");
+                match trigger {
+                    Trigger::Abort => process::abort(),
+                    Trigger::Panic => panic!("Emergency brake triggered!"),
+                }
+            },
+            false => false,
+        }
+    }
+
+    fn trigger_abort(&self) -> bool {
+        match self.should_trigger() {
+            true => {
+                error!("Emergency brake abort triggered!");
+                process::abort();
+            },
+            false => false,
+        }
+    }
+
+    fn trigger_panic(&self) -> bool {
+        match self.should_trigger() {
+            true => {
+                error!("Emergency brake panic triggered!");
+                panic!("Emergency brake panic triggered!");
+            },
+            false => false,
+        }
+    }
+
+    fn trigger_on_sample(&mut self, sample: bool, trigger: &'static Trigger) -> bool {
         self.add_sample(sample);
-        self.trigger()
+        self.trigger(trigger)
     }
 }
 
@@ -153,13 +205,13 @@ impl ServiceChecker for EBrake {
         }
     }
 
-    async fn watch_service_endpoint(mut self, uri: &'static str, interval: usize) {
+    async fn watch_service_endpoint(mut self, uri: &'static str, interval: usize, trigger: &'static Trigger) {
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(interval as u64));
             loop {
                 interval.tick().await;
                 let result = self.check_service_endpoint(uri).await;
-                self.trigger_on_sample(result);
+                self.trigger_on_sample(result, trigger);
             }
         });
     }
