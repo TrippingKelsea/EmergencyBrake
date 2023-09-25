@@ -2,6 +2,16 @@
 name = "emergency_brake"
 version = "0.1.0"
 edition = "2021"
+description = "emergency_brake is a simple and easy to use process or service monitor that will immediately terminate the execution of a process or service on a critical dependency failure."
+authors = ["Kelsea Blackwell"]
+license = "Apache 2.0"
+keywords = ["chaos", "failure", "fault-injection", "panic"]
+categories = ["development-tools::testing"]
+homepage = "https://github.com/TrippingKelsea/EmergencyBrake"
+repository = "https://github.com/TrippingKelsea/EmergencyBrake"
+documentation = "https://github.com/TrippingKelsea/EmergencyBrake"
+readme = "README.md"
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
